@@ -1,10 +1,10 @@
 """
 Unit tests for getting the list of courses and the course outline.
 """
+import ddt
 import json
 import lxml
 import datetime
-import os
 import mock
 import pytz
 
@@ -14,8 +14,10 @@ from django.utils.translation import ugettext as _
 
 from contentstore.courseware_index import CoursewareSearchIndexer, SearchIndexingError
 from contentstore.tests.utils import CourseTestCase
-from contentstore.utils import reverse_course_url, reverse_library_url, add_instructor
-from contentstore.views.course import course_outline_initial_state, reindex_course_and_check_access
+from contentstore.utils import reverse_course_url, reverse_library_url, add_instructor, reverse_usage_url
+from contentstore.views.course import (
+    course_outline_initial_state, reindex_course_and_check_access, _deprecated_blocks_info
+)
 from contentstore.views.item import create_xblock_info, VisibilityState
 from course_action_state.managers import CourseRerunUIStateManager
 from course_action_state.models import CourseRerunState
@@ -225,6 +227,7 @@ class TestCourseIndex(CourseTestCase):
                 self.assert_correct_json_response(child_response)
 
 
+@ddt.ddt
 class TestCourseOutline(CourseTestCase):
     """
     Unit tests for the course outline.
@@ -339,6 +342,80 @@ class TestCourseOutline(CourseTestCase):
 
         self.assertEqual(_get_release_date(response), get_default_time_display(self.course.start))
         _assert_settings_link_present(response)
+
+    def _create_test_data(self, course_module, create_blocks=False, publish=True, block_types=None):
+        """
+        Create data for test.
+        """
+        if create_blocks:
+            for block_type in block_types:
+                ItemFactory.create(
+                    parent_location=self.vertical.location,
+                    category=block_type,
+                    display_name='{} Problem'.format(block_type)
+                )
+
+            if not publish:
+                self.store.unpublish(self.vertical.location, self.user.id)
+
+        course_module.advanced_modules.extend(block_types)
+
+    def _verify_deprecated_info(self, course_id, advanced_modules, info, deprecated_block_types, publish=True):
+        """
+        Verify deprecated info.
+        """
+        expected_blocks = []
+        if publish:
+            for block_type in deprecated_block_types:
+                expected_blocks.append(
+                    [
+                        reverse_usage_url('container_handler', self.vertical.location),
+                        '{} Problem'.format(block_type)
+                    ]
+                )
+
+        self.assertEqual(info['block_types'], deprecated_block_types)
+        self.assertEqual(
+            info['block_types_enabled'],
+            any(component in advanced_modules for component in deprecated_block_types)
+        )
+        self.assertItemsEqual(info['blocks'], expected_blocks)
+        self.assertEqual(
+            info['advance_settings_url'],
+            reverse_course_url('advanced_settings_handler', course_id)
+        )
+
+    @ddt.data(
+        {'publish': True},
+        {'publish': False},
+    )
+    @ddt.unpack
+    def test_verify_deprecated_warning_message_with_single_feature(self, publish):
+        """
+        Verify deprecated warning info for single deprecated feature.
+        """
+        block_types = settings.DEPRECATED_BLOCK_TYPES
+        course_module = modulestore().get_item(self.course.location)
+        self._create_test_data(course_module, create_blocks=True, block_types=block_types, publish=publish)
+        info = _deprecated_blocks_info(course_module, block_types)
+        self._verify_deprecated_info(
+            course_module.id,
+            course_module.advanced_modules,
+            info,
+            block_types,
+            publish=publish
+        )
+
+    def test_verify_deprecated_warning_message_with_multiple_features(self):
+        """
+        Verify deprecated warning info for multiple deprecated features.
+        """
+        block_types = ['peergrading', 'combinedopenended', 'openassessment']
+        course_module = modulestore().get_item(self.course.location)
+        self._create_test_data(course_module, create_blocks=True, block_types=block_types)
+
+        info = _deprecated_blocks_info(course_module, block_types)
+        self._verify_deprecated_info(course_module.id, course_module.advanced_modules, info, block_types)
 
 
 class TestCourseReIndex(CourseTestCase):
