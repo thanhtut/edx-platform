@@ -1874,6 +1874,13 @@ class SplitMongoModuleStore(SplitBulkWriteMixin, ModuleStoreWriteBase):
                 block_data.fields = settings
 
                 new_id = new_structure['_id']
+
+                # When a draft block from a published structure is reverted in revert_to_published(),
+                # the update_version is updated while source_version is not. If source_version is not None,
+                # set it to None - so that has_changes() will use update_version for comparison and return True.
+                # Prevents the block from getting stuck in the published state.
+                block_data.edit_info.source_version = None
+
                 self.version_block(block_data, user_id, new_id)
                 self.update_structure(course_key, new_structure)
                 # update the index entry if appropriate
@@ -2968,8 +2975,12 @@ class SplitMongoModuleStore(SplitBulkWriteMixin, ModuleStoreWriteBase):
                 if getattr(destination_block.edit_info, key) is None:
                     setattr(destination_block.edit_info, key, val)
 
-        # introduce new edit info field for tracing where copied/published blocks came
-        destination_block.edit_info.source_version = new_block.edit_info.update_version
+        # After revert_to_published(), the source_version of both draft and published blocks are same.
+        # Publishing the block after that point replaces the published block's edit info with the draft
+        # block's edit info - making has_changes() True even when no changes have been made.
+        # Prevents the block from getting stuck in the draft state.
+        # pylint: disable=line-too-long
+        destination_block.edit_info.source_version = new_block.edit_info.source_version or new_block.edit_info.update_version
 
         if blacklist != EXCLUDE_ALL:
             for child in destination_block.fields.get('children', []):
