@@ -4,6 +4,7 @@ Common utility functions useful throughout the contentstore
 # pylint: disable=no-member
 
 import logging
+from opaque_keys import InvalidKeyError
 import re
 from datetime import datetime
 from pytz import UTC
@@ -160,9 +161,10 @@ def get_lms_link_for_certificate_web_view(user_id, course_key, mode):
 
 def course_image_url(course):
     """Returns the image url for the course."""
+    if not course.course_image:
+        return ''
     loc = StaticContent.compute_location(course.location.course_key, course.course_image)
-    path = StaticContent.serialize_asset_key_with_slash(loc)
-    return path
+    return StaticContent.serialize_asset_key_with_slash(loc)
 
 
 # pylint: disable=invalid-name
