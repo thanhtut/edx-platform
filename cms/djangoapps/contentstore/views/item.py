@@ -697,6 +697,7 @@ def _delete_orphans(course_usage_key, user_id, commit=False):
     the orphans.
     """
     store = modulestore()
+    store.branch_setting("published-only", course_usage_key)
     items = store.get_orphans(course_usage_key)
     if commit:
         for itemloc in items:
