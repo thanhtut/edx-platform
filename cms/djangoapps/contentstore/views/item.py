@@ -697,12 +697,11 @@ def _delete_orphans(course_usage_key, user_id, commit=False):
     the orphans.
     """
     store = modulestore()
-    store.branch_setting("published-only", course_usage_key)
     items = store.get_orphans(course_usage_key)
     if commit:
         for itemloc in items:
             # need to delete all versions
-            store.delete_item(itemloc, user_id, revision=ModuleStoreEnum.RevisionOption.all)
+            store.delete_item(itemloc, user_id)
     return [unicode(item) for item in items]
 
 
