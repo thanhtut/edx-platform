@@ -12,9 +12,10 @@ from enrollment.errors import (
     CourseEnrollmentExistsError, UserNotFoundError,
 )
 from enrollment.serializers import CourseEnrollmentSerializer, CourseField
+from openedx.core.djangoapps.credit.api import is_credit_course, get_user_course_credit_request
 from student.models import (
     CourseEnrollment, NonExistentCourseError, EnrollmentClosedError,
-    CourseFullError, AlreadyEnrolledError,
+    CourseFullError, AlreadyEnrolledError, CourseEnrollmentAttribute
 )
 
 log = logging.getLogger(__name__)
@@ -64,7 +65,8 @@ def get_course_enrollment(username, course_id):
 def create_course_enrollment(username, course_id, mode, is_active):
     """Create a new course enrollment for the given user.
 
-    Creates a new course enrollment for the specified user username.
+    Creates a new course enrollment for the specified user username. Also adds
+    enrollment attribute if the course have mode credit.
 
     Args:
         username (str): The name of the user to create a new course enrollment for.
@@ -93,7 +95,7 @@ def create_course_enrollment(username, course_id, mode, is_active):
 
     try:
         enrollment = CourseEnrollment.enroll(user, course_key, check_access=True)
-        return _update_enrollment(enrollment, is_active=is_active, mode=mode)
+        enrollment_data = _update_enrollment(enrollment, is_active=is_active, mode=mode)
     except NonExistentCourseError as err:
         raise CourseNotFoundError(err.message)
     except EnrollmentClosedError as err:
@@ -103,6 +105,14 @@ def create_course_enrollment(username, course_id, mode, is_active):
     except AlreadyEnrolledError as err:
         enrollment = get_course_enrollment(username, course_id)
         raise CourseEnrollmentExistsError(err.message, enrollment)
+
+    if enrollment.mode == 'credit' and is_credit_course(course_key):    # pylint: disable=no-member
+        credit_request = get_user_course_credit_request(username, course_key)
+        if credit_request:
+            provider_id = credit_request['provider']['id']
+            CourseEnrollmentAttribute.create_enrollment_attribute(enrollment, provider_id)
+
+    return enrollment_data
 
 
 def update_course_enrollment(username, course_id, mode=None, is_active=None):

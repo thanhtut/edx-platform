@@ -1847,3 +1847,47 @@ class CourseEnrollmentAttribute(models.Model):
         max_length=255,
         help_text=_("Value of the enrollment attribute e.g. ASU")
     )
+
+    @classmethod
+    def create_enrollment_attribute(cls, enrollment, value, namespace='credit', name='provider_id'):
+        """Add 'CourseEnrollmentAttribute' for given enrollment.
+
+        Args:
+            enrollment(CourseEnrollment): 'CourseEnrollment' for which attribute is to be added
+            value(str): Value of the enrollment attribute
+            namespace(str): Namespace of the enrollment attribute
+            name(str): Name of the enrollment attribute
+
+        """
+        attribute = cls.objects.create(
+            enrollment=enrollment, namespace=namespace, name=name, value=value
+        )
+        attribute.save()
+
+    @classmethod
+    def get_enrollment_attributes(cls, enrollment):
+        """Retrieve list of all enrollment attributes.
+
+        Args:
+            enrollment(CourseEnrollment): 'CourseEnrollment' for which list is to retrieve
+
+        Returns: list
+
+        Example:
+        >>> CourseEnrollmentAttribute.get_enrollment_attributes(CourseEnrollment)
+        [
+            {
+                "namespace": "credit",
+                "name": "provider_id",
+                "value": "hogwarts"
+            }
+        ]
+        """
+        return [
+            {
+                "namespace": attribute.namespace,
+                "name": attribute.name,
+                "value": attribute.value,
+            }
+            for attribute in cls.objects.filter(enrollment=enrollment)
+        ]

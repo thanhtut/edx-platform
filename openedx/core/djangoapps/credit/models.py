@@ -404,6 +404,47 @@ class CreditRequest(TimeStampedModel):
             for request in cls.objects.select_related('course', 'provider').filter(username=username)
         ]
 
+    @classmethod
+    def user_course_credit_request(cls, username, course_key):
+        """Retrieve credit request for the given course key by the provided.
+        user.
+
+        Arguments:
+            username (str): The username of the user.
+            course_key (str): The credit course key.
+
+        Returns: dict
+
+        Example Usage:
+        >>> CreditRequest.user_course_credit_request("bob", "course-v1:HogwartsX+Potions101+1T2015")
+        {
+            "uuid": "557168d0f7664fe59097106c67c3f847",
+            "timestamp": "2015-05-04T20:57:57.987119+00:00",
+            "provider": {
+                "id": "HogwartsX",
+                "display_name": "Hogwarts School of Witchcraft and Wizardry",
+            },
+            "status": "pending"  # or "approved" or "rejected"
+        }
+
+        """
+        try:
+            request = cls.objects.select_related('course', 'provider').get(
+                username=username, course__course_key=course_key
+            )
+            return {
+                "uuid": request.uuid,
+                "timestamp": request.modified,
+                "course_key": request.course.course_key,
+                "provider": {
+                    "id": request.provider.provider_id,
+                    "display_name": request.provider.display_name
+                },
+                "status": request.status
+            }
+        except cls.DoesNotExist:
+            return None
+
     class Meta(object):  # pylint: disable=missing-docstring
         # Enforce the constraint that each user can have exactly one outstanding
         # request to a given provider.  Multiple requests use the same UUID.

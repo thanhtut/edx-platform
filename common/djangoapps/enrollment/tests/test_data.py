@@ -8,17 +8,31 @@ from nose.tools import raises
 import unittest
 
 from django.conf import settings
+from django.test.utils import override_settings
 from xmodule.modulestore.tests.django_utils import ModuleStoreTestCase
 from xmodule.modulestore.tests.factories import CourseFactory
 from enrollment.errors import (
     CourseNotFoundError, UserNotFoundError, CourseEnrollmentClosedError,
     CourseEnrollmentFullError, CourseEnrollmentExistsError,
 )
+from opaque_keys.edx.keys import CourseKey
+from openedx.core.djangoapps.credit.models import CreditProvider, CreditEligibility, CreditCourse
+from openedx.core.djangoapps.credit.api import (
+    create_credit_request, set_credit_requirements, set_credit_requirement_status, get_credit_requirement
+)
 from student.tests.factories import UserFactory, CourseModeFactory
-from student.models import CourseEnrollment, EnrollmentClosedError, CourseFullError, AlreadyEnrolledError
+from student.models import (
+    CourseEnrollment, EnrollmentClosedError, CourseFullError, AlreadyEnrolledError, CourseEnrollmentAttribute
+)
 from enrollment import data
 
 
+TEST_CREDIT_PROVIDER_SECRET_KEY = "931433d583c84ca7ba41784bad3232e6"
+
+
+@override_settings(CREDIT_PROVIDER_SECRET_KEYS={
+    "hogwarts": TEST_CREDIT_PROVIDER_SECRET_KEY
+})
 @ddt.ddt
 @unittest.skipUnless(settings.ROOT_URLCONF == 'lms.urls', 'Test only valid in lms')
 class EnrollmentDataTest(ModuleStoreTestCase):
@@ -66,6 +80,44 @@ class EnrollmentDataTest(ModuleStoreTestCase):
         # Confirm the returned enrollment and the data match up.
         self.assertEqual(course_mode, enrollment['mode'])
         self.assertEqual(is_active, enrollment['is_active'])
+
+    @ddt.data(
+        # Audit / Verified / Honor course modes, with three course enrollments.
+        (['honor', 'verified', 'credit'], 'credit'),
+    )
+    @ddt.unpack
+    def test_credit_enroll(self, course_modes, enrollment_mode):
+
+        self._create_course_modes(course_modes)
+        self._credit_eligible_course()
+
+        enrollment = data.create_course_enrollment(
+            self.user.username,
+            unicode(self.course.id),
+            enrollment_mode,
+            True
+        )
+
+        self.assertTrue(CourseEnrollment.is_enrolled(self.user, self.course.id))
+        course_mode, is_active = CourseEnrollment.enrollment_mode_for_user(self.user, self.course.id)
+
+        self.assertEqual(course_mode, enrollment['mode'])
+        self.assertEqual(is_active, enrollment['is_active'])
+
+        enrollment_obj = CourseEnrollment.objects.get(
+            user=self.user,
+            course_id=CourseKey.from_string(enrollment['course_details']['course_id'])
+        )
+
+        attributes = CourseEnrollmentAttribute.get_enrollment_attributes(enrollment_obj)
+        self.assertIn('namespace', attributes[0])
+        self.assertEqual(attributes[0]['namespace'], "credit")
+
+        self.assertIn('name', attributes[0])
+        self.assertEqual(attributes[0]['name'], "provider_id")
+
+        self.assertIn('value', attributes[0])
+        self.assertEqual(attributes[0]['value'], "hogwarts")
 
     def test_unenroll(self):
         # Enroll the user in the course
@@ -183,6 +235,51 @@ class EnrollmentDataTest(ModuleStoreTestCase):
                 mode_slug=mode_slug,
                 mode_display_name=mode_slug,
             )
+
+    def _credit_eligible_course(self):
+        """Create credit eligible course with dummy provider and requirement
+        required for testing
+        """
+        requirements = [
+            {
+                "namespace": "grade",
+                "name": "grade",
+                "display_name": "Grade",
+                "criteria": {}
+            }
+        ]
+        provider = CreditProvider.objects.create(
+            provider_id="hogwarts",
+            display_name="Hogwart School of witchcraft",
+            provider_url="https://credit.hogwarts.com/request",
+            enable_integration=True
+        )
+
+        credit_course = CreditCourse.objects.create(
+            course_key=CourseKey.from_string(unicode(self.course.id)),
+            enabled=True,
+        )
+        credit_course.providers.add(provider)
+
+        set_credit_requirements(CourseKey.from_string(unicode(self.course.id)), requirements)
+
+        requirement = get_credit_requirement(
+            CourseKey.from_string(unicode(self.course.id)),
+            requirements[0]['namespace'],
+            requirements[0]['name']
+        )
+
+        set_credit_requirement_status(self.user.username, requirement, reason={"final_grade": "pass"})
+
+        CreditEligibility.objects.create(
+            username=self.user.username,
+            course=credit_course,
+            provider=provider
+        )
+
+        create_credit_request(
+            CourseKey.from_string(unicode(self.course.id)), provider.provider_id, self.user.username
+        )
 
     @raises(UserNotFoundError)
     def test_enrollment_for_non_existent_user(self):

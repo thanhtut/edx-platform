@@ -405,6 +405,33 @@ def get_credit_requests_for_user(username):
     return CreditRequest.credit_requests_for_user(username)
 
 
+def get_user_course_credit_request(username, course_key):
+    """Get the user's credit request for the provided course.
+
+    Arguments:
+        username(str): Username of the user.
+        course_key(CourseKey): Identifier of course.
+
+    Returns: dict
+
+    Example Usage:
+    >>> get_user_course_credit_request(
+    "bob", "course-v1-edX-DemoX-1T2015"
+    )
+    {
+        "uuid": "557168d0f7664fe59097106c67c3f847",
+        "timestamp": "2015-05-04T20:57:57.987119+00:00",
+        "course_key": "course-v1-edX-DemoX-1T2015",
+        "provider": {
+            "id": "HogwartsX",
+            "display_name": "Hogwarts School of Witchcraft and Wizardry",
+        },
+        "status": "pending"  # or "approved" or "rejected"
+    }
+    """
+    return CreditRequest.user_course_credit_request(username, course_key)
+
+
 def get_credit_requirement_status(course_key, username):
     """ Retrieve the user's status for each credit requirement in the course.
 

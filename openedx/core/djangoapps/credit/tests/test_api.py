@@ -404,6 +404,9 @@ class CreditProviderIntegrationApiTests(CreditApiTestBase):
         with self.assertNumQueries(1):
             api.get_credit_requests_for_user(self.USER_INFO["username"])
 
+        with self.assertNumQueries(1):
+            api.get_user_course_credit_request(self.USER_INFO["username"], self.course_key)
+
     def test_reuse_credit_request(self):
         # Create the first request
         first_request = api.create_credit_request(self.course_key, self.PROVIDER_ID, self.USER_INFO["username"])
@@ -496,6 +499,29 @@ class CreditProviderIntegrationApiTests(CreditApiTestBase):
     def test_get_credit_requests_no_requests(self):
         requests = api.get_credit_requests_for_user(self.USER_INFO["username"])
         self.assertEqual(requests, [])
+
+    def test_get_user_credit_request_no_requests(self):
+        request = api.get_user_course_credit_request(self.USER_INFO["username"], self.course_key)
+        self.assertIsNone(request)
+
+    def test_get_user_credit_request(self):
+        # Initiate a credit request
+        request = api.create_credit_request(self.course_key, self.PROVIDER_ID, self.USER_INFO['username'])
+        user_request = api.get_user_course_credit_request(self.USER_INFO['username'], self.course_key)
+
+        self.assertIn('uuid', user_request)
+        self.assertEqual(request['parameters']['request_uuid'], user_request['uuid'])
+
+        self.assertIn('course_key', user_request)
+        self.assertEqual(self.course_key, user_request['course_key'])
+
+        self.assertIn('provider', user_request)
+        provider = user_request['provider']
+        self.assertIn('id', provider)
+        self.assertEqual(self.PROVIDER_ID, provider['id'])
+
+        self.assertIn('status', user_request)
+        self.assertEqual(user_request['status'], 'pending')
 
     def _configure_credit(self):
 
