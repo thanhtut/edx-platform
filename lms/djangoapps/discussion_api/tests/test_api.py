@@ -1182,6 +1182,7 @@ class GetCommentListTest(CommentsServiceMockMixin, ModuleStoreTestCase):
             self.get_comment_list(thread, endorsed=True, page=2, page_size=10)
 
 
+@ddt.ddt
 class CreateThreadTest(CommentsServiceMockMixin, UrlResetMixin, ModuleStoreTestCase):
     """Tests for create_thread"""
     @mock.patch.dict("django.conf.settings.FEATURES", {"ENABLE_DISCUSSION_SERVICE": True})
@@ -1272,6 +1273,56 @@ class CreateThreadTest(CommentsServiceMockMixin, UrlResetMixin, ModuleStoreTestC
                 "user_course_roles": [],
             }
         )
+
+    @ddt.data(
+        *itertools.product(
+            [
+                FORUM_ROLE_ADMINISTRATOR,
+                FORUM_ROLE_MODERATOR,
+                FORUM_ROLE_COMMUNITY_TA,
+                FORUM_ROLE_STUDENT,
+            ],
+            [True, False],
+            [True, False],
+            ["no_group", "group_none", "group_set"],
+        )
+    )
+    @ddt.unpack
+    def test_group_id(self, role_name, course_is_cohorted, topic_is_cohorted, data_group_state):
+        cohort_course = CourseFactory.create(
+            discussion_topics={"Test Topic": {"id": "test_topic"}},
+            cohort_config={
+                "cohorted": course_is_cohorted,
+                "cohorted_discussions": ["test_topic"] if topic_is_cohorted else [],
+            }
+        )
+        CourseEnrollmentFactory.create(user=self.user, course_id=cohort_course.id)
+        cohort = CohortFactory.create(course_id=cohort_course.id, users=[self.user])
+        role = Role.objects.create(name=role_name, course_id=cohort_course.id)
+        role.users = [self.user]
+        self.register_post_thread_response({})
+        data = self.minimal_data.copy()
+        data["course_id"] = unicode(cohort_course.id)
+        if data_group_state == "group_none":
+            data["group_id"] = None
+        elif data_group_state == "group_set":
+            data["group_id"] = cohort.id + 1
+        expected_error = (
+            data_group_state in ["group_none", "group_set"] and
+            (not course_is_cohorted or role_name == FORUM_ROLE_STUDENT)
+        )
+        try:
+            create_thread(self.request, data)
+            self.assertFalse(expected_error)
+            actual_post_data = httpretty.last_request().parsed_body
+            if data_group_state == "group_set":
+                self.assertEqual(actual_post_data["group_id"], [str(data["group_id"])])
+            elif data_group_state == "no_group" and course_is_cohorted and topic_is_cohorted:
+                self.assertEqual(actual_post_data["group_id"], [str(cohort.id)])
+            else:
+                self.assertNotIn("group_id", actual_post_data)
+        except ValidationError:
+            self.assertTrue(expected_error)
 
     def test_following(self):
         self.register_post_thread_response({"id": "test_id"})
@@ -1455,6 +1506,44 @@ class CreateCommentTest(CommentsServiceMockMixin, UrlResetMixin, ModuleStoreTest
         actual_event_name, actual_event_data = mock_emit.call_args[0]
         self.assertEqual(actual_event_name, expected_event_name)
         self.assertEqual(actual_event_data, expected_event_data)
+
+    @ddt.data(
+        *itertools.product(
+            [
+                FORUM_ROLE_ADMINISTRATOR,
+                FORUM_ROLE_MODERATOR,
+                FORUM_ROLE_COMMUNITY_TA,
+                FORUM_ROLE_STUDENT,
+            ],
+            [True, False],
+            ["question", "discussion"],
+        )
+    )
+    @ddt.unpack
+    def test_endorsed(self, role_name, is_thread_author, thread_type):
+        role = Role.objects.create(name=role_name, course_id=self.course.id)
+        role.users = [self.user]
+        self.register_get_thread_response(
+            make_minimal_cs_thread({
+                "id": "test_thread",
+                "course_id": unicode(self.course.id),
+                "thread_type": thread_type,
+                "user_id": str(self.user.id) if is_thread_author else str(self.user.id + 1),
+            })
+        )
+        self.register_post_comment_response({}, "test_thread")
+        data = self.minimal_data.copy()
+        data["endorsed"] = True
+        expected_error = (
+            role_name == FORUM_ROLE_STUDENT and
+            (not is_thread_author or thread_type == "discussion")
+        )
+        try:
+            create_comment(self.request, data)
+            self.assertEqual(httpretty.last_request().parsed_body["endorsed"], ["True"])
+            self.assertFalse(expected_error)
+        except ValidationError:
+            self.assertTrue(expected_error)
 
     def test_voted(self):
         self.register_post_comment_response({"id": "test_comment"}, "test_thread")
