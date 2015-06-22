@@ -11,7 +11,7 @@ from django.http import HttpResponseRedirect
 from django.utils import translation
 from django.utils.cache import patch_vary_headers
 # Override the Django 1.4 implementation with the 1.8 implementation
-from django_locale.trans_real import get_language_from_request
+from django_locale.trans_real import get_language_from_request, LANGUAGE_SESSION_KEY
 
 
 class LocaleMiddleware(object):
@@ -32,6 +32,7 @@ class LocaleMiddleware(object):
                 break
 
     def process_request(self, request):
+        print 'In django locale middleware, process request'
         check_path = self.is_language_prefix_patterns_used()
         # This call is broken in Django 1.4:
         # https://github.com/django/django/blob/stable/1.4.x/django/utils/translation/trans_real.py#L399
@@ -40,8 +41,12 @@ class LocaleMiddleware(object):
             request, check_path=check_path)
         translation.activate(language)
         request.LANGUAGE_CODE = translation.get_language()
+        print request.LANGUAGE_CODE
+        print "returning accept lang {}".format(request.META.get('HTTP_ACCEPT_LANGUAGE', None))
+        print "returning session lang {}".format(request.session.get(LANGUAGE_SESSION_KEY, None))
 
     def process_response(self, request, response):
+        print 'In django locale middleware, process response'
         language = translation.get_language()
         language_from_path = translation.get_language_from_path(request.path_info)
         if (response.status_code == 404 and not language_from_path
@@ -66,6 +71,7 @@ class LocaleMiddleware(object):
                         1
                     )
                 )
+                print "Returning at L73"
                 return self.response_redirect_class(language_url)
 
         if not (self.is_language_prefix_patterns_used()
@@ -73,6 +79,9 @@ class LocaleMiddleware(object):
             patch_vary_headers(response, ('Accept-Language',))
         if 'Content-Language' not in response:
             response['Content-Language'] = language
+
+        print "Returning at L82"
+        print "returning accept lang {}".format(request.META.get('HTTP_ACCEPT_LANGUAGE', None))
         return response
 
     def is_language_prefix_patterns_used(self):

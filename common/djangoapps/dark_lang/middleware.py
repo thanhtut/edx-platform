@@ -16,7 +16,8 @@ from dark_lang.models import DarkLangConfig
 
 # TODO re-import this once we're on Django 1.5 or greater. [PLAT-671]
 # from django.utils.translation.trans_real import parse_accept_lang_header
-from django_locale.trans_real import parse_accept_lang_header
+# from django.utils.translation import LANGUAGE_SESSION_KEY
+from django_locale.trans_real import parse_accept_lang_header, LANGUAGE_SESSION_KEY
 
 
 def dark_parse_accept_lang_header(accept):
@@ -77,11 +78,14 @@ class DarkLangMiddleware(object):
         """
         Prevent user from requesting un-released languages except by using the preview-lang query string.
         """
+        print "In dark lang middleware"
         if not DarkLangConfig.current().enabled:
             return
 
         self._clean_accept_headers(request)
         self._activate_preview_language(request)
+        print "returning accept lang {}".format(request.META.get('HTTP_ACCEPT_LANGUAGE', None))
+        print "returning session lang {}".format(request.session.get(LANGUAGE_SESSION_KEY, None))
 
     def _fuzzy_match(self, lang_code):
         """Returns a fuzzy match for lang_code"""
@@ -124,15 +128,15 @@ class DarkLangMiddleware(object):
         """
         If the request has the get parameter ``preview-lang``,
         and that language doesn't appear in ``self.released_langs``,
-        then set the session ``django_language`` to that language.
+        then set the session LANGUAGE_SESSION_KEY to that language.
         """
         if 'clear-lang' in request.GET:
-            if 'django_language' in request.session:
-                del request.session['django_language']
+            if LANGUAGE_SESSION_KEY in request.session:
+                del request.session[LANGUAGE_SESSION_KEY]
 
         preview_lang = request.GET.get('preview-lang', None)
 
         if not preview_lang:
             return
 
-        request.session['django_language'] = preview_lang
+        request.session[LANGUAGE_SESSION_KEY] = preview_lang
