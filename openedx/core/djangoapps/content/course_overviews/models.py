@@ -119,6 +119,7 @@ class CourseOverview(django.db.models.Model):
         Returns:
             CourseOverview: overview of the requested course
         """
+        # TODO me: return ErrorDescriptor?
         course_overview = None
         try:
             course_overview = CourseOverview.objects.get(id=course_id)
