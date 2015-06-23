@@ -29,6 +29,7 @@ from .models import (
 )
 from .signature import signature, get_shared_secret_key
 
+
 log = logging.getLogger(__name__)
 
 
@@ -442,6 +443,7 @@ def get_credit_requirement_status(course_key, username):
     Returns:
         list of requirement statuses
     """
+    course_key = CourseKey.from_string(unicode(course_key))
     requirements = CreditRequirement.get_course_requirements(course_key)
     requirement_statuses = CreditRequirementStatus.get_statuses(requirements, username)
     requirement_statuses = dict((o.requirement, o) for o in requirement_statuses)
@@ -529,6 +531,11 @@ def set_credit_requirement_status(username, requirement, status="satisfied", rea
             )
 
     """
+    invalid_requirements = _validate_requirements([requirement])
+    if invalid_requirements:
+        invalid_requirements = ", ".join(invalid_requirements)
+        raise InvalidCreditRequirements(invalid_requirements)
+
     credit_requirement = CreditRequirement.get_course_requirement(
         requirement['course_key'], requirement['namespace'], requirement['name']
     )

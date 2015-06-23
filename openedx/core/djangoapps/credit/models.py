@@ -8,11 +8,9 @@ successful completion of a course on EdX
 
 import logging
 
-from django.db import models
-from django.db import transaction
+from django.db import models, transaction
 from django.core.validators import RegexValidator
 from simple_history.models import HistoricalRecords
-
 
 from jsonfield.fields import JSONField
 from model_utils.models import TimeStampedModel
@@ -248,6 +246,7 @@ class CreditRequirementStatus(TimeStampedModel):
 
     REQUIREMENT_STATUS_CHOICES = (
         ("satisfied", "satisfied"),
+        ("skipped", "skipped"),
         ("failed", "failed"),
     )
 
