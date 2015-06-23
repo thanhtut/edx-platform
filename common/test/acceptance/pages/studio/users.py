@@ -116,8 +116,8 @@ class UsersPageMixin(PageObject):
         Always call this before using the page. It also disables animations
         for improved test reliability.
         """
-        self.wait_for_element_invisibility(
-            '.ui-loading',
+        self.wait_for(
+            lambda: not self.q(css='.ui-loading').present,
             'Wait for the page to complete its initial loading and rendering via Backbone'
         )
         disable_animations(self)
