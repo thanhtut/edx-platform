@@ -74,7 +74,7 @@ class TestMinGradedRequirementStatus(ModuleStoreTestCase):
         of valid grade.
         """
 
-        listen_for_grade_calculation(None, self.request, {'percent': grade_achieved}, self.course.id, due_date)
+        listen_for_grade_calculation(None, self.user.username, {'percent': grade_achieved}, self.course.id, due_date)
         credit_requirement = CreditRequirementStatus.objects.get(username=self.request.user.username)
         self.assertEqual(credit_requirement.status, "satisfied")
 
@@ -87,14 +87,14 @@ class TestMinGradedRequirementStatus(ModuleStoreTestCase):
     def test_min_grade_requirement_failed_grade_valid_deadline(self, grade_achieved, due_date):
         """Test with failed grades and deadline is still open or not defined."""
 
-        listen_for_grade_calculation(None, self.request, {'percent': grade_achieved}, self.course.id, due_date)
+        listen_for_grade_calculation(None, self.user.username, {'percent': grade_achieved}, self.course.id, due_date)
         with self.assertRaises(CreditRequirementStatus.DoesNotExist):
             CreditRequirementStatus.objects.get(username=self.request.user.username)
 
     def test_min_grade_requirement_failed_grade_expired_deadline(self):
         """Test with failed grades and deadline expire"""
 
-        listen_for_grade_calculation(None, self.request, {'percent': 0.22}, self.course.id, self.EXPIRED_DUE_DATE)
+        listen_for_grade_calculation(None, self.user.username, {'percent': 0.22}, self.course.id, self.EXPIRED_DUE_DATE)
         credit_requirement = CreditRequirementStatus.objects.get(username=self.request.user.username)
         self.assertEqual(credit_requirement.status, "failed")
 
@@ -104,6 +104,6 @@ class TestMinGradedRequirementStatus(ModuleStoreTestCase):
         Test grades.grade method send the signal and receiver
         performs accordingly.
         """
-        grades.grade(self.request.user, self.request, self.course)
+        grades.grade(self.user.username, self.request, self.course)
         # credit_requirement = CreditRequirementStatus.objects.get(username=self.request.user.username)
         # self.assertEqual(credit_requirement.status, "satisfied")

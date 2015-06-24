@@ -25,7 +25,7 @@ def listen_for_course_publish(sender, course_key, **kwargs):  # pylint: disable=
 
 
 @receiver(MIN_GRADE_REQUIREMENT_STATUS)
-def listen_for_grade_calculation(sender, request, grade_summary, course_key, deadline, **kwargs):  # pylint: disable=unused-argument
+def listen_for_grade_calculation(sender, username, grade_summary, course_key, deadline, **kwargs):  # pylint: disable=unused-argument
     """Receive 'MIN_GRADE_REQUIREMENT_STATUS' signal and update minimum grade
     requirement status.
 
@@ -48,9 +48,9 @@ def listen_for_grade_calculation(sender, request, grade_summary, course_key, dea
                 min_grade = criteria.get('min_grade')
                 if grade_summary['percent'] >= min_grade:
                     set_credit_requirement_status(
-                        request.user.username, requirement, status="satisfied", reason=grade_summary['percent']
+                        username, requirement, status="satisfied", reason=grade_summary['percent']
                     )
                 elif deadline and deadline < timezone.now():
                     set_credit_requirement_status(
-                        request.user.username, requirement, status="failed", reason={}
+                        username, requirement, status="failed", reason={}
                     )

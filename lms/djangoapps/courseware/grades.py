@@ -27,7 +27,7 @@ from submissions import api as sub_api  # installed from the edx-submissions rep
 from opaque_keys import InvalidKeyError
 from opaque_keys.edx.keys import CourseKey
 
-MIN_GRADE_REQUIREMENT_STATUS = Signal(providing_args=["request", "grade_summary", "course_key", "deadline"])
+MIN_GRADE_REQUIREMENT_STATUS = Signal(providing_args=["username", "grade_summary", "course_key", "deadline"])
 log = logging.getLogger("edx.courseware")
 
 
@@ -133,7 +133,7 @@ def grade(student, request, course, keep_raw_scores=False):
         grade_summary = _grade(student, request, course, keep_raw_scores)
         MIN_GRADE_REQUIREMENT_STATUS.send_robust(
             sender=None,
-            request=request,
+            request=request.user.username,
             grade_summary=grade_summary,
             course_key=course.id,
             deadline=course.end
