@@ -10,6 +10,7 @@ from django.utils.translation import ugettext
 
 from util.date_utils import strftime_localized
 from xmodule import course_metadata_utils
+from xmodule.course_module import CourseDescriptor
 from xmodule.modulestore.django import modulestore
 from xmodule_django.models import CourseKeyField, UsageKeyField
 
@@ -114,12 +115,12 @@ class CourseOverview(django.db.models.Model):
         future use.
 
         Arguments:
-            course_id (CourseKey): the ID of the course overview to be loaded
+            course_id (CourseKey): the ID of the course overview to be loaded.
 
         Returns:
-            CourseOverview: overview of the requested course
+            CourseOverview: overview of the requested course. If loading course
+            from the module store failed, returns None.
         """
-        # TODO me: return ErrorDescriptor?
         course_overview = None
         try:
             course_overview = CourseOverview.objects.get(id=course_id)
@@ -127,9 +128,13 @@ class CourseOverview(django.db.models.Model):
             store = modulestore()
             with store.bulk_operations(course_id):
                 course = store.get_course(course_id)
-                if course:
+                if isinstance(course, CourseDescriptor):
                     course_overview = CourseOverview._create_from_course(course)
-                    course_overview.save()  # Save new overview to the cache
+                    course_overview.save()
+                else:
+                    # TODO me: Figure out how to handle get_course returning ErrorDescriptor.
+                    # TODO me: After doing ^, update all calls to get_from_id.
+                    return None
         return course_overview
 
     def clean_id(self, padding_char='='):

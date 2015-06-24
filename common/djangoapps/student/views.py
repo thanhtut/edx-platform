@@ -249,8 +249,7 @@ def get_course_enrollments(user, course_org_filter, org_filter_out_set):
         course_overview = enrollment.course_overview
 
         # If the course is missing or broken, log an error.
-        # TODO me: remove ErrorDescriptor check, maybe
-        if (not course_overview) or isinstance(course_overview, ErrorDescriptor):
+        if not course_overview:
             log.error(
                 u"User %s enrolled in %s course %s",
                 user.username,
