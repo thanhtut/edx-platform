@@ -376,7 +376,7 @@ def _check_fields(allowed_fields, data, message):
         raise ValidationError(non_editable_errors)
 
 
-def _check_initializable_thread_fields(data, context):
+def _check_initializable_thread_fields(data, context):  # pylint: disable=invalid-name
     """
     Raise ValidationError if the given data contains a thread field that is not
     initializable by the requesting user
@@ -388,7 +388,7 @@ def _check_initializable_thread_fields(data, context):
     )
 
 
-def _check_initializable_comment_fields(data, context):
+def _check_initializable_comment_fields(data, context):  # pylint: disable=invalid-name
     """
     Raise ValidationError if the given data contains a thread field that is not
     initializable by the requesting user
