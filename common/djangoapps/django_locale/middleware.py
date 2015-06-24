@@ -41,7 +41,7 @@ class LocaleMiddleware(object):
             request, check_path=check_path)
         translation.activate(language)
         request.LANGUAGE_CODE = translation.get_language()
-        print request.LANGUAGE_CODE
+        print 'request.LANGUAGE_CODE:', request.LANGUAGE_CODE
         print "returning accept lang {}".format(request.META.get('HTTP_ACCEPT_LANGUAGE', None))
         print "returning session lang {}".format(request.session.get(LANGUAGE_SESSION_KEY, None))
 

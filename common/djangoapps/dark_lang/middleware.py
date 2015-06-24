@@ -13,6 +13,8 @@ the SessionMiddleware.
 from django.conf import settings
 
 from dark_lang.models import DarkLangConfig
+from openedx.core.djangoapps.user_api.preferences.api import get_user_preference
+from lang_pref import LANGUAGE_KEY
 
 # TODO re-import this once we're on Django 1.5 or greater. [PLAT-671]
 # from django.utils.translation.trans_real import parse_accept_lang_header
@@ -131,8 +133,13 @@ class DarkLangMiddleware(object):
         then set the session LANGUAGE_SESSION_KEY to that language.
         """
         if 'clear-lang' in request.GET:
-            if LANGUAGE_SESSION_KEY in request.session:
+            # Reset user's language to their language preference, if they have one
+            user_pref = get_user_preference(request.user, LANGUAGE_KEY)
+            if user_pref:
+                request.session[LANGUAGE_SESSION_KEY] = user_pref
+            else:
                 del request.session[LANGUAGE_SESSION_KEY]
+            return
 
         preview_lang = request.GET.get('preview-lang', None)
 
