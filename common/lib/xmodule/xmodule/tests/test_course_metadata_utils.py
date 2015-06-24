@@ -101,12 +101,13 @@ class CourseMetadataUtilsTestCase(TestCase):
             Returns (str): format_string + " " + str(date_time)
             """
             if format_string in ['DATE_TIME', 'TIME', 'SHORT_DATE', 'LONG_DATE']:
-                return format_string + " " + str(date_time)
+                return format_string + " " + date_time.strftime("%Y-%m-%d %H:%M:%S")
             else:
                 raise ValueError("Invalid format string :" + format_string)
 
         test_datetime = datetime(1945, 02, 06, 04, 20, 00, tzinfo=UTC())
         advertised_start_parsable = "2038-01-19 03:14:07"
+        advertised_start_bad_date = "215-01-01 10:10:10"
         advertised_start_unparsable = "This coming fall"
 
         FunctionTest = namedtuple('FunctionTest', 'function scenarios')  # pylint: disable=invalid-name
@@ -157,6 +158,10 @@ class CourseMetadataUtilsTestCase(TestCase):
                 TestScenario(
                     (test_datetime, advertised_start_unparsable, 'DATE_TIME', ugettext, mock_strftime_localized),
                     advertised_start_unparsable.title()
+                ),
+                TestScenario(
+                    (test_datetime, advertised_start_bad_date, 'DATE_TIME', ugettext, mock_strftime_localized),
+                    advertised_start_bad_date.title()
                 ),
                 TestScenario(
                     (test_datetime, None, 'SHORT_DATE', ugettext, mock_strftime_localized),
