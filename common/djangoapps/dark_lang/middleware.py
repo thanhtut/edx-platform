@@ -137,7 +137,7 @@ class DarkLangMiddleware(object):
             user_pref = get_user_preference(request.user, LANGUAGE_KEY)
             if user_pref:
                 request.session[LANGUAGE_SESSION_KEY] = user_pref
-            else:
+            elif LANGUAGE_SESSION_KEY in request.session:
                 del request.session[LANGUAGE_SESSION_KEY]
             return
 

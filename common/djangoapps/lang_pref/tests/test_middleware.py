@@ -38,9 +38,13 @@ class TestUserPreferenceMiddleware(TestCase):
 
     def test_language_in_session(self):
         # language set in both the user preferences and session,
-        # session should get precedence
+        # preference should get precedence. The session will hold the last value,
+        # which is probably the user's last preference. Look up the updated preference.
+
+        # Dark lang middleware should run after this middleware, so it can
+        # set a session language as an override of the user's preference.
         self.request.session[LANGUAGE_SESSION_KEY] = 'en'
         set_user_preference(self.user, LANGUAGE_KEY, 'eo')
         self.middleware.process_request(self.request)
 
-        self.assertEquals(self.request.session[LANGUAGE_SESSION_KEY], 'en')
+        self.assertEquals(self.request.session[LANGUAGE_SESSION_KEY], 'eo')
