@@ -4,6 +4,7 @@ Tests i18n in courseware
 import re
 from nose.plugins.attrib import attr
 
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.test import TestCase
 
@@ -91,3 +92,22 @@ class I18nRegressionTests(BaseI18nTestCase):
         # receive files for 'fa'
         response = self.client.get('/', HTTP_ACCEPT_LANGUAGE='fa-ir')
         self.assert_tag_has_attr(response.content, "html", "lang", "fa")
+
+    def test_preview_lang(self):
+        # Regression test; LOC-87
+        self.release_languages('es-419')
+        site_lang = settings.LANGUAGE_CODE
+        # Visit the front page; verify we see site default lang
+        response = self.client.get('/')
+        self.assert_tag_has_attr(response.content, "html", "lang", site_lang)
+
+        # Verify we can switch language using the preview-lang query param
+        response = self.client.get('/?preview-lang=eo')
+        self.assert_tag_has_attr(response.content, "html", "lang", "eo")
+        # We should be able to see released languages using preview-lang
+        response = self.client.get('/?preview-lang=es-419')
+        self.assert_tag_has_attr(response.content, "html", "lang", "es-419")
+
+        # Clearing the language should go back to site default
+        response = self.client.get('/?clear-lang')
+        self.assert_tag_has_attr(response.content, "html", "lang", site_lang)
